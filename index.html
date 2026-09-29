@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>용돈 기입장</title>
+<style>
+  :root {
+    --paper: #faf7f0;
+    --card: #ffffff;
+    --ink: #2b2b2b;
+    --muted: #736b5c;
+    --line: #e6dfd0;
+    --line-strong: #d3c8b2;
+    --income: #1d4ed8;
+    --expense: #c62828;
+    --food: #e8833a;
+    --transport: #2e8b57;
+    --culture: #7c4dff;
+    --etc: #8d8d8d;
+    --focus: #2b2b2b;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+
+  body {
+    margin: 0;
+    color: var(--ink);
+    background-color: var(--paper);
+    /* 줄노트처럼 옅은 가로줄 */
+    background-image: repeating-linear-gradient(to bottom, transparent 0 31px, rgba(115, 107, 92, 0.07) 31px 32px);
+    font-family: "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  .app {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 28px 16px 56px;
+  }
+
+  h1 {
+    margin: 0 0 16px;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  h2 {
+    margin: 0 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 3px double var(--line-strong);
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .card {
+    margin-bottom: 16px;
+    padding: 20px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(60, 50, 30, 0.06);
+  }
+
+  .balance,
+  .totals dd,
+  .record-date,
+  .record-amount,
+  .ratio-amount,
+  .ratio-percent { font-variant-numeric: tabular-nums; }
+
+  .notice {
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    color: #7a4a00;
+    background: #fff4e0;
+    border: 1px solid #f0c98a;
+    border-radius: 10px;
+    font-size: 14px;
+  }
+
+  .empty {
+    margin: 0;
+    padding: 12px 0;
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+  }
+
+  /* ---------- 잔액 ---------- */
+  .balance-card { padding-top: 24px; text-align: center; }
+  .balance-label { margin: 0; color: var(--muted); font-size: 14px; font-weight: 600; }
+  .balance {
+    margin: 4px 0 0;
+    font-size: clamp(40px, 12vw, 52px);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    word-break: keep-all;
+  }
+  .balance.is-negative { color: var(--expense); }
+
+  .totals {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin: 18px 0 0;
+    padding-top: 14px;
+    border-top: 1px dashed var(--line-strong);
+  }
+  .totals div + div { border-left: 1px solid var(--line); }
+  .totals dt { color: var(--muted); font-size: 13px; }
+  .totals dd { margin: 2px 0 0; font-size: 17px; font-weight: 700; }
+  .totals .income { color: var(--income); }
+  .totals .expense { color: var(--expense); }
+
+  /* ---------- 입력 폼 ---------- */
+  .record-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 12px;
+  }
+  .type-field,
+  .form-error,
+  .add-button { grid-column: 1 / -1; }
+
+  .type-field { margin: 0; padding: 0; border: 0; min-width: 0; }
+  .field-label,
+  .field label {
+    display: block;
+    margin-bottom: 6px;
+    padding: 0;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .type-toggle { display: grid; grid-template-columns: 1fr 1fr; }
+  .toggle { position: relative; }
+  .toggle input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .toggle span {
+    display: block;
+    padding: 9px;
+    color: var(--muted);
+    background: #fff;
+    border: 1px solid var(--line-strong);
+    font-weight: 700;
+    text-align: center;
+  }
+  .toggle:first-child span { border-radius: 8px 0 0 8px; }
+  .toggle:last-child span { border-left: 0; border-radius: 0 8px 8px 0; }
+  .toggle:hover span { background: #f7f3ea; }
+  .toggle-income input:checked + span { color: #fff; background: var(--income); border-color: var(--income); }
+  .toggle-expense input:checked + span { color: #fff; background: var(--expense); border-color: var(--expense); }
+  .toggle input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; position: relative; }
+
+  input[type="date"],
+  input[type="text"],
+  input[type="number"],
+  select {
+    width: 100%;
+    min-width: 0;
+    height: 42px;
+    padding: 0 11px;
+    color: inherit;
+    background: #fff;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    font: inherit;
+  }
+  input:hover,
+  select:hover { border-color: #b3a68c; }
+  input:focus-visible,
+  select:focus-visible,
+  button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  select:disabled {
+    color: #a39a88;
+    background: #f3efe6;
+    border-color: var(--line);
+    cursor: not-allowed;
+  }
+  [aria-invalid="true"] { border-color: var(--expense); background: #fff7f7; }
+
+  .amount-input { display: flex; align-items: center; gap: 8px; }
+  .amount-input input { text-align: right; }
+  .amount-input span { color: var(--muted); }
+
+  .add-button {
+    height: 46px;
+    color: #fff;
+    background: var(--ink);
+    border: 0;
+    border-radius: 10px;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .add-button:hover { background: #000; }
+  .add-button:active { transform: translateY(1px); }
+
+  .form-error {
+    margin: 0;
+    color: var(--expense);
+    font-size: 14px;
+    white-space: pre-line;
+  }
+  .form-error:empty { display: none; }
+
+  /* ---------- 카테고리 색 ---------- */
+  [data-category="food"] { --cat: var(--food); }
+  [data-category="transport"] { --cat: var(--transport); }
+  [data-category="culture"] { --cat: var(--culture); }
+  [data-category="etc"] { --cat: var(--etc); }
+  [data-category="income"] { --cat: var(--income); }
+
+  /* ---------- 카테고리별 지출 ---------- */
+  .ratio-list { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
+  .ratio {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "name amount percent" "bar bar bar";
+    align-items: baseline;
+    gap: 6px 12px;
+  }
+  .ratio-name { grid-area: name; display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .ratio-name::before {
+    content: "";
+    flex: none;
+    width: 10px;
+    height: 10px;
+    background: var(--cat);
+    border-radius: 3px;
+  }
+  .ratio-amount { grid-area: amount; color: var(--muted); font-size: 14px; }
+  .ratio-percent { grid-area: percent; min-width: 3.6em; font-weight: 700; text-align: right; }
+  .ratio-bar {
+    grid-area: bar;
+    display: block;
+    height: 10px;
+    overflow: hidden;
+    background: #f2ede3;
+    border-radius: 999px;
+  }
+  .ratio-fill { display: block; height: 100%; background: var(--cat); border-radius: inherit; }
+
+  /* ---------- 기록 목록 ---------- */
+  .record-list { margin: 0; padding: 0; list-style: none; }
+  .record {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "meta delete" "content amount";
+    align-items: center;
+    gap: 4px 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .record:first-child { padding-top: 2px; }
+  .record:last-child { border-bottom: 0; padding-bottom: 0; }
+  .record-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .record-date { color: var(--muted); font-size: 13px; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 8px 0 7px;
+    background: #fff;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 20px;
+  }
+  .badge::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    background: var(--cat);
+    border-radius: 50%;
+  }
+  .record-content { grid-area: content; overflow-wrap: anywhere; }
+  .record-amount { grid-area: amount; font-weight: 700; text-align: right; white-space: nowrap; }
+  .record.is-income .record-amount { color: var(--income); }
+  .record.is-expense .record-amount { color: var(--expense); }
+
+  .delete-button {
+    grid-area: delete;
+    justify-self: end;
+    padding: 1px 9px;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .delete-button:hover { color: var(--expense); background: #fff5f5; border-color: #f0b4b4; }
+
+  @media (max-width: 480px) {
+    .app { padding-top: 20px; }
+    .card { padding: 16px; }
+    .record-form { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main class="app">
+  <h1>용돈 기입장</h1>
+  <p id="notice" class="notice" role="status" hidden></p>
+
+  <section class="card balance-card" aria-labelledby="balance-label">
+    <p id="balance-label" class="balance-label">현재 잔액</p>
+    <p id="balance" class="balance">0원</p>
+    <dl class="totals">
+      <div>
+        <dt>수입</dt>
+        <dd id="income-total" class="income">0원</dd>
+      </div>
+      <div>
+        <dt>지출</dt>
+        <dd id="expense-total" class="expense">0원</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="card" aria-labelledby="form-title">
+    <h2 id="form-title">기록 추가</h2>
+    <form id="record-form" class="record-form" novalidate autocomplete="off">
+      <fieldset class="type-field">
+        <legend class="field-label">구분</legend>
+        <div class="type-toggle">
+          <label class="toggle toggle-income"><input type="radio" name="type" value="income"><span>수입</span></label>
+          <label class="toggle toggle-expense"><input type="radio" name="type" value="expense" checked><span>지출</span></label>
+        </div>
+      </fieldset>
+
+      <div class="field">
+        <label for="date">날짜</label>
+        <input type="date" id="date" required>
+      </div>
+      <div class="field">
+        <label for="content">내용</label>
+        <input type="text" id="content" maxlength="30" placeholder="예: 점심 김밥" required>
+      </div>
+      <div class="field">
+        <label for="amount">금액</label>
+        <div class="amount-input">
+          <input type="number" id="amount" min="1" max="10000000" step="1" inputmode="numeric" placeholder="0" required>
+          <span>원</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="category">카테고리</label>
+        <select id="category"></select>
+      </div>
+
+      <button type="submit" class="add-button">추가</button>
+      <p id="form-error" class="form-error" role="alert"></p>
+    </form>
+  </section>
+
+  <section class="card" aria-labelledby="ratio-title">
+    <h2 id="ratio-title">카테고리별 지출</h2>
+    <p id="ratio-empty" class="empty">아직 지출 기록이 없어요.</p>
+    <ul id="ratio-list" class="ratio-list"></ul>
+  </section>
+
+  <section class="card" aria-labelledby="list-title">
+    <h2 id="list-title">기록 0건</h2>
+    <p id="list-empty" class="empty">아직 기록이 없어요. 위에서 첫 기록을 추가해 보세요.</p>
+    <ul id="record-list" class="record-list"></ul>
+  </section>
+</main>
+
+<script>
+'use strict';
+
+const STORAGE_KEY = 'allowance-ledger.v1';
+const BROKEN_KEY = STORAGE_KEY + '.broken';
+const CATEGORIES = ['식비', '교통', '문화생활', '기타'];
+const CATEGORY_KEYS = { 식비: 'food', 교통: 'transport', 문화생활: 'culture', 기타: 'etc' }; // CSS 색 연결용
+const MAX_CONTENT = 30;
+const MIN_AMOUNT = 1;
+const MAX_AMOUNT = 10000000;
+
+const MESSAGES = {
+  date: '날짜를 입력해 주세요.',
+  contentEmpty: '내용을 입력해 주세요.',
+  contentLong: '내용은 30자까지 쓸 수 있어요.',
+  amount: '금액은 1원부터 10,000,000원까지 정수로 입력해 주세요.',
+  loadFailed: '저장된 기록을 읽지 못했어요.',
+  saveFailed: '저장에 실패했어요. 새로고침하면 사라질 수 있어요.',
+  storageBlocked: '브라우저 저장소를 쓸 수 없어요. 새로고침하면 기록이 사라질 수 있어요.',
+};
+
+const form = document.getElementById('record-form');
+const dateInput = document.getElementById('date');
+const contentInput = document.getElementById('content');
+const amountInput = document.getElementById('amount');
+const categorySelect = document.getElementById('category');
+const formError = document.getElementById('form-error');
+const notice = document.getElementById('notice');
+const listTitle = document.getElementById('list-title');
+const listEmpty = document.getElementById('list-empty');
+const recordList = document.getElementById('record-list');
+const balanceEl = document.getElementById('balance');
+const incomeTotalEl = document.getElementById('income-total');
+const expenseTotalEl = document.getElementById('expense-total');
+const ratioEmpty = document.getElementById('ratio-empty');
+const ratioList = document.getElementById('ratio-list');
+
+// 기록 배열이 유일한 원본. 합계·비율은 저장하지 않고 render() 때마다 계산한다.
+let records = [];
+
+// ---------- 유틸 ----------
+
+// 로컬 시간 기준 오늘 (toISOString은 UTC라서 오전 9시 전엔 어제가 나온다)
+function todayLocal() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function isValidDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [y, m, d] = value.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+}
+
+function isValidAmount(value) {
+  return Number.isInteger(value) && value >= MIN_AMOUNT && value <= MAX_AMOUNT;
+}
+
+function isValidRecord(r) {
+  if (!r || typeof r !== 'object') return false;
+  const categoryOk = r.type === 'income'
+    ? r.category === null
+    : r.type === 'expense' && CATEGORIES.includes(r.category);
+  return typeof r.id === 'string' && r.id !== ''
+    && isValidDate(r.date)
+    && typeof r.content === 'string'
+    && r.content.trim() !== '' && r.content.length <= MAX_CONTENT
+    && isValidAmount(r.amount)
+    && categoryOk
+    && Number.isFinite(r.createdAt);
+}
+
+function makeId() {
+  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+}
+
+function formatWon(value) {
+  return value.toLocaleString('ko-KR') + '원';
+}
+
+function formatDate(value) {
+  return value.replaceAll('-', '.');
+}
+
+// 소수점 첫째 자리에서 반올림. 정수끼리 먼저 곱하고 나눠서 x.x5 경계에서 부동소수 오차로 어긋나지 않게 한다.
+function formatPercent(part, total) {
+  return (Math.round((part * 1000) / total) / 10).toFixed(1) + '%';
+}
+
+function createSpan(className, text) {
+  const span = document.createElement('span');
+  span.className = className;
+  span.textContent = text;
+  return span;
+}
+
+function showNotice(message) {
+  notice.textContent = message;
+  notice.hidden = false;
+}
+
+// ---------- 저장 ----------
+
+function loadRecords() {
+  let raw;
+  try {
+    raw = localStorage.getItem(STORAGE_KEY);
+  } catch (error) {
+    showNotice(MESSAGES.storageBlocked);
+    return [];
+  }
+  if (raw === null) return [];
+
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (error) {
+    data = undefined;
+  }
+
+  if (!Array.isArray(data)) {
+    backupBroken(raw);
+    showNotice(MESSAGES.loadFailed);
+    return [];
+  }
+
+  const valid = data.filter(isValidRecord);
+  const skipped = data.length - valid.length;
+  if (skipped > 0) {
+    backupBroken(raw);
+    showNotice(`형식이 맞지 않는 기록 ${skipped}건은 건너뛰었어요.`);
+  }
+  return valid;
+}
+
+// 깨진 원본은 다음 저장으로 덮어쓰기 전에 따로 보관한다
+function backupBroken(raw) {
+  try {
+    localStorage.setItem(BROKEN_KEY, raw);
+  } catch (error) {
+    // 보관도 못 하면 할 수 있는 게 없다. 앱은 계속 동작한다.
+  }
+}
+
+function saveRecords() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  } catch (error) {
+    showNotice(MESSAGES.saveFailed);
+  }
+}
+
+// ---------- 폼 ----------
+
+function readForm() {
+  const type = form.elements.type.value;
+  const date = dateInput.value;
+  const content = contentInput.value.trim();
+  const amountText = amountInput.value.trim();
+  const amount = amountText === '' ? NaN : Number(amountText);
+  const errors = [];
+
+  if (!isValidDate(date)) errors.push({ input: dateInput, message: MESSAGES.date });
+  if (content === '') errors.push({ input: contentInput, message: MESSAGES.contentEmpty });
+  else if (content.length > MAX_CONTENT) errors.push({ input: contentInput, message: MESSAGES.contentLong });
+  if (!isValidAmount(amount)) errors.push({ input: amountInput, message: MESSAGES.amount });
+
+  return {
+    errors,
+    record: {
+      date,
+      content,
+      amount,
+      type,
+      category: type === 'income' ? null : categorySelect.value,
+    },
+  };
+}
+
+function showErrors(errors) {
+  clearErrors();
+  for (const { input } of errors) input.setAttribute('aria-invalid', 'true');
+  formError.textContent = errors.map((e) => e.message).join('\n');
+  errors[0].input.focus();
+}
+
+function clearErrors() {
+  formError.textContent = '';
+  for (const input of [dateInput, contentInput, amountInput]) input.removeAttribute('aria-invalid');
+}
+
+function syncCategoryState() {
+  categorySelect.disabled = form.elements.type.value === 'income';
+}
+
+// ---------- 계산 ----------
+
+function sumAmounts(type) {
+  return records.filter((r) => r.type === type).reduce((total, r) => total + r.amount, 0);
+}
+
+function expenseByCategory() {
+  const totals = Object.fromEntries(CATEGORIES.map((name) => [name, 0]));
+  for (const r of records) {
+    if (r.type === 'expense') totals[r.category] += r.amount;
+  }
+  return totals;
+}
+
+// ---------- 화면 ----------
+
+function renderSummary() {
+  const income = sumAmounts('income');
+  const expense = sumAmounts('expense');
+  const balance = income - expense;
+  balanceEl.textContent = formatWon(balance);
+  balanceEl.classList.toggle('is-negative', balance < 0);
+  incomeTotalEl.textContent = formatWon(income);
+  expenseTotalEl.textContent = formatWon(expense);
+}
+
+function renderRatios() {
+  const totals = expenseByCategory();
+  const expense = CATEGORIES.reduce((sum, name) => sum + totals[name], 0);
+  ratioEmpty.hidden = expense > 0;
+  ratioList.hidden = expense === 0;
+  if (expense === 0) {
+    ratioList.replaceChildren();
+    return;
+  }
+  ratioList.replaceChildren(...CATEGORIES.map((name) => createRatioItem(name, totals[name], expense)));
+}
+
+function createRatioItem(name, amount, total) {
+  const item = document.createElement('li');
+  item.className = 'ratio';
+  item.dataset.category = CATEGORY_KEYS[name];
+
+  const bar = createSpan('ratio-bar', '');
+  bar.setAttribute('aria-hidden', 'true');
+  const fill = createSpan('ratio-fill', '');
+  fill.style.width = (amount / total) * 100 + '%';
+  bar.append(fill);
+
+  item.append(
+    createSpan('ratio-name', name), ' ',
+    bar, ' ',
+    createSpan('ratio-amount', formatWon(amount)), ' ',
+    createSpan('ratio-percent', formatPercent(amount, total)),
+  );
+  return item;
+}
+
+// 최신 날짜가 위, 같은 날짜면 나중에 추가한 것이 위
+function sortedRecords() {
+  return [...records].reverse().sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+    return b.createdAt - a.createdAt;
+  });
+}
+
+function renderList() {
+  listTitle.textContent = `기록 ${records.length}건`;
+  listEmpty.hidden = records.length > 0;
+  recordList.replaceChildren(...sortedRecords().map(createRecordItem));
+}
+
+function createRecordItem(record) {
+  const isIncome = record.type === 'income';
+  const item = document.createElement('li');
+  item.className = 'record ' + (isIncome ? 'is-income' : 'is-expense');
+
+  const badge = createSpan('badge', isIncome ? '수입' : record.category);
+  badge.dataset.category = isIncome ? 'income' : CATEGORY_KEYS[record.category];
+  const meta = createSpan('record-meta', '');
+  meta.append(createSpan('record-date', formatDate(record.date)), ' ', badge);
+  const content = createSpan('record-content', record.content);
+  const amount = createSpan('record-amount', (isIncome ? '+' : '-') + formatWon(record.amount));
+
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'delete-button';
+  remove.dataset.id = record.id;
+  remove.textContent = '삭제';
+  remove.setAttribute('aria-label', `'${record.content}' 삭제`);
+
+  item.append(meta, ' ', content, ' ', amount, ' ', remove);
+  return item;
+}
+
+function render() {
+  renderSummary();
+  renderRatios();
+  renderList();
+}
+
+// ---------- 이벤트 ----------
+
+form.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const { errors, record } = readForm();
+  if (errors.length > 0) {
+    showErrors(errors);
+    return;
+  }
+
+  records.push({ id: makeId(), ...record, createdAt: Date.now() });
+  saveRecords();
+  render();
+
+  contentInput.value = '';
+  amountInput.value = '';
+  clearErrors();
+  contentInput.focus();
+});
+
+form.addEventListener('change', (event) => {
+  if (event.target.name === 'type') syncCategoryState();
+});
+
+recordList.addEventListener('click', (event) => {
+  const button = event.target.closest('.delete-button');
+  if (!button) return;
+  const record = records.find((r) => r.id === button.dataset.id);
+  if (!record) return;
+  if (!confirm(`'${record.content}' 기록을 삭제할까요?`)) return;
+
+  records = records.filter((r) => r.id !== record.id);
+  saveRecords();
+  render();
+});
+
+// ---------- 시작 ----------
+
+for (const name of CATEGORIES) categorySelect.append(new Option(name, name));
+dateInput.value = todayLocal();
+syncCategoryState();
+
+records = loadRecords();
+render();
+</script>
+</body>
+</html>
